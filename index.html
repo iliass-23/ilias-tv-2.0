@@ -1,398 +1,1077 @@
 <!DOCTYPE html>
-<html lang="en">
+<html dir='rtl' lang='ar'>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glassmorphic Video Player</title>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Tajawal', sans-serif;
-        }
+<meta charset='UTF-8'/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Glassmorphic VIBER TV PLAYER</title>
+<link href='https://i.ibb.co/nsm91s67/35823913b1.png' rel='icon' type='image/png'/>
+<meta name="referrer" content="no-referrer" />
 
-        body {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
-        .player-container {
-            width: 100%;
-            max-width: 900px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-            animation: fadeIn 0.8s ease-out;
-        }
+<style>
+    :root {
+        --primary-color: #ffc107;
+        --live-color: #e62e2e;
+        --menu-bg: rgba(40, 40, 40, 0.9);
+        --glass-bg: rgba(255, 255, 255, 0.1);
+        --glass-border: rgba(255, 255, 255, 0.2);
+        --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        --blur-intensity: 15px;
+    }
+    
+    body, html {
+        margin: 0; 
+        padding: 0; 
+        overflow: hidden;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        font-family: 'Tajawal', sans-serif !important;
+        -webkit-tap-highlight-color: transparent;
+        height: 100%;
+        width: 100%;
+    }
+    
+    #player-container {
+        position: absolute; 
+        top: 0; 
+        left: 0;
+        width: 100%; 
+        height: 100%;
+        display: flex; 
+        justify-content: center; 
+        align-items: center;
+        backdrop-filter: blur(10px);
+    }
+    
+    #video-wrapper { 
+        position: absolute; 
+        top: 0;
+        left: 0;
+        width: 100%; 
+        height: 100%; 
+        z-index: 1; 
+        background: #000;
+        overflow: hidden;
+    }
+    
+    #video { 
+        width: 100%; 
+        height: 100%; 
+        object-fit: cover; /* Changed from contain to cover to remove black borders */
+    }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+    #loading-spinner {
+        width: 60px; 
+        height: 60px;
+        border: 5px solid rgba(255, 255, 255, 0.2);
+        border-top-color: var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        position: absolute; 
+        z-index: 100;
+        display: block;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    @keyframes spin { 
+        to { transform: translate(-50%, -50%) rotate(360deg); } 
+    }
 
-        .player-header {
-            padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
+    #error-overlay {
+        position: absolute; 
+        z-index: 100;
+        inset: 0; 
+        background-color: rgba(0,0,0,0.85);
+        color: #fff; 
+        display: none; 
+        flex-direction: column; 
+        align-items: center; 
+        justify-content: center; 
+        text-align: center; 
+        padding: 20px;
+        backdrop-filter: blur(10px);
+    }
+    
+    #error-overlay i { 
+        width: 48px; 
+        height: 48px; 
+        margin-bottom: 20px; 
+        color: var(--live-color); 
+    }
 
-        .channel-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
+    .controls-overlay {
+        position: absolute; 
+        z-index: 10;
+        transition: opacity 0.3s, visibility 0.3s;
+        opacity: 0; 
+        visibility: hidden; 
+        pointer-events: none;
+    }
+    
+    .controls-overlay.visible { 
+        opacity: 1; 
+        visibility: visible; 
+        pointer-events: auto; 
+    }
 
-        .channel-logo {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-weight: bold;
-            font-size: 20px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
+    #bottom-controls-container {
+        bottom: 10px; 
+        left: 10px; 
+        right: 10px; 
+        padding: 15px;
+        background: var(--glass-bg);
+        backdrop-filter: blur(var(--blur-intensity));
+        -webkit-backdrop-filter: blur(var(--blur-intensity));
+        border-radius: 15px;
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass-shadow);
+    }
+    
+    #center-controls {
+        top: 50%; 
+        left: 50%; 
+        transform: translate(-50%, -50%);
+    }
+    
+    .center-controls-cluster {
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        background: var(--glass-bg);
+        backdrop-filter: blur(var(--blur-intensity));
+        -webkit-backdrop-filter: blur(var(--blur-intensity));
+        padding: 15px 25px;
+        border-radius: 50px;
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass-shadow);
+    }
+    
+    .control-button, .center-control-button {
+        background: none; 
+        border: none; 
+        color: #fff; 
+        cursor: pointer; 
+        padding: 0; 
+        outline: none;
+        -webkit-tap-highlight-color: transparent; 
+        transition: all 0.2s ease;
+    }
+    
+    .control-button:hover, .center-control-button:hover { 
+        color: var(--primary-color);
+        transform: scale(1.1);
+    }
+    
+    .control-button i, .control-button svg { 
+        width: 24px; 
+        height: 24px; 
+        filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.3));
+    }
+    
+    .center-control-button i { 
+        width: 42px; 
+        height: 42px; 
+        filter: drop-shadow(0px 0px 8px rgba(0, 0, 0, 0.8)); 
+    }
+    
+    .center-seek-button i { 
+        width: 32px; 
+        height: 32px; 
+    }
 
-        .channel-name {
-            color: white;
-            font-size: 22px;
-            font-weight: 600;
-        }
+    .progress-bar-container { 
+        width: 100%; 
+        padding: 10px 0; 
+        cursor: default; 
+    }
+    
+    .progress-bar { 
+        width: 100%; 
+        height: 6px; 
+        background-color: rgba(255, 255, 255, 0.3); 
+        border-radius: 3px; 
+        overflow: hidden; 
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .progress-played { 
+        width: 0%; 
+        height: 100%; 
+        background: linear-gradient(90deg, var(--primary-color), #ffa36c); 
+        border-radius: 3px; 
+        transition: width 0.1s;
+        box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+    }
 
-        .controls {
-            display: flex;
-            gap: 10px;
-        }
+    .bottom-controls { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        width: 100%; 
+    }
+    
+    .controls-left, .controls-right { 
+        display: flex; 
+        align-items: center; 
+        gap: 15px; 
+    }
+    
+    #time-display-container {
+        color: #fff; 
+        font-size: 0.9em; 
+        font-weight: 500;
+        min-width: 50px; 
+        text-align: center;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+    
+    #settings-popup {
+        position: absolute; 
+        bottom: 80px;
+        right: 20px;
+        width: 200px; 
+        background: var(--menu-bg);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border-radius: 15px; 
+        z-index: 20;
+        display: none; 
+        box-shadow: var(--glass-shadow);
+        border: 1px solid var(--glass-border);
+        overflow: hidden;
+    }
+    
+    #settings-list { 
+        list-style:none; 
+        padding: 0; 
+        margin:0; 
+        overflow-y: auto; 
+        max-height: 220px; 
+    }
+    
+    .settings-header { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        padding: 12px 15px; 
+        border-bottom: 1px solid rgba(255,255,255,0.1); 
+        background: rgba(0, 0, 0, 0.2);
+    }
+    
+    .settings-title { 
+        color: #fff; 
+        font-weight: 700; 
+        font-size: 1.1em;
+    }
+    
+    .settings-close-btn, .settings-back-btn { 
+        cursor: pointer; 
+        color: #ccc; 
+        padding: 5px; 
+        transition: all 0.2s;
+    }
+    
+    .settings-close-btn:hover, .settings-back-btn:hover { 
+        color: #fff; 
+        transform: scale(1.1);
+    }
+    
+    .menu-item {
+        display: flex; 
+        align-items: center; 
+        justify-content: flex-start;
+        gap: 10px; 
+        padding: 12px 15px; 
+        border-radius: 0; 
+        cursor: pointer;
+        font-weight: 500; 
+        color: #fff; 
+        transition: background-color 0.2s ease;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .menu-item:last-child {
+        border-bottom: none;
+    }
+    
+    .menu-item:hover { 
+        background-color: rgba(255, 255, 255, 0.1); 
+    }
+    
+    .menu-item.active { 
+        color: var(--primary-color); 
+        font-weight: 700; 
+        background-color: rgba(255, 193, 7, 0.1);
+    }
+    
+    .menu-item .checkmark { 
+        width: 20px; 
+        height: 20px; 
+        visibility: hidden; 
+    }
+    
+    .menu-item.active .checkmark { 
+        visibility: visible; 
+    }
+    
+    .menu-item-bitrate, .menu-item-value {
+        font-size: 0.9em; 
+        color: #aaa; 
+        margin-left: auto;
+    }
 
-        .control-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
+    #player-logo, #telegram-link {
+        position: absolute; 
+        z-index: 9; 
+        opacity: 0.9; 
+        transition: all 0.3s ease;
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 10px;
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass-shadow);
+    }
+    
+    #player-logo { 
+        top: 20px; 
+        left: 20px; 
+        height: 45px; 
+        padding: 5px;
+    }
+    
+    #telegram-link { 
+        top: 20px; 
+        right: 20px; 
+        color: #fff; 
+        padding: 8px;
+        width: 42px;
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    #player-logo:hover, #telegram-link:hover { 
+        opacity: 1; 
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+    
+    #telegram-link:hover { 
+        color: #2AABEE; 
+    }
+    
+    #player-logo img { 
+        height: 100%; 
+        width: auto; 
+        border-radius: 5px;
+    }
+    
+    /* Glassmorphic title */
+    #channel-title {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: white;
+        font-weight: 700;
+        font-size: 1.2em;
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        padding: 8px 20px;
+        border-radius: 30px;
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass-shadow);
+        z-index: 9;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
 
-        .control-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
+    /* Volume slider */
+    .volume-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .volume-slider {
+        width: 80px;
+        height: 5px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 3px;
+        outline: none;
+        -webkit-appearance: none;
+        transition: all 0.3s;
+        opacity: 0;
+    }
+    
+    .volume-container:hover .volume-slider {
+        opacity: 1;
+    }
+    
+    .volume-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: white;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    }
 
-        .video-container {
-            position: relative;
-            width: 100%;
-            padding-top: 56.25%; /* 16:9 Aspect Ratio */
-            background: #000;
-        }
+    /* Watermark logo - FIXED POSITIONING */
+    #watermark-logo {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        width: 80px;
+        height: auto;
+        opacity: 0.5;
+        z-index: 5;
+        transition: all 0.3s ease;
+        pointer-events: none;
+    }
 
-        #video-player {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            outline: none;
+    /* Adjust watermark position for different screen sizes */
+    @media (min-width: 768px) {
+        #watermark-logo {
+            width: 100px;
+            bottom: 25px;
+            right: 25px;
         }
+    }
 
-        .player-footer {
-            padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+    /* Fullscreen adjustments - make watermark smaller and position properly */
+    #player-container:fullscreen #watermark-logo {
+        width: 120px;
+        bottom: 30px;
+        right: 30px;
+    }
 
-        .progress-container {
-            flex-grow: 1;
-            margin: 0 15px;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
-            overflow: hidden;
-            cursor: pointer;
-        }
-
-        .progress {
-            height: 100%;
-            background: linear-gradient(90deg, #ff6b6b, #ffa36c);
-            width: 0%;
-            transition: width 0.1s;
-        }
-
-        .time-display {
-            color: white;
-            font-size: 14px;
-            min-width: 100px;
-        }
-
-        .volume-control {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .volume-slider {
-            width: 80px;
-            height: 5px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
-            outline: none;
-            -webkit-appearance: none;
-        }
-
-        .volume-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: white;
-            cursor: pointer;
-        }
-
-        .status-message {
-            padding: 15px;
-            text-align: center;
-            color: white;
-            font-size: 16px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            margin: 10px 20px;
-        }
-
-        @media (max-width: 768px) {
-            .player-header {
-                flex-direction: column;
-                gap: 15px;
-            }
-            
-            .player-footer {
-                flex-wrap: wrap;
-                gap: 15px;
-            }
-            
-            .progress-container {
-                order: 1;
-                width: 100%;
-                margin: 0;
-            }
-        }
-    </style>
+    /* Fix for contain mode - position watermark inside video area */
+    .video-contain #watermark-logo {
+        position: absolute;
+        bottom: 30px;
+        right: 30px;
+        transition: all 0.3s ease;
+    }
+</style>
 </head>
 <body>
-    <div class="player-container">
-        <div class="player-header">
-            <div class="channel-info">
-                <div class="channel-logo">BB</div>
-                <h1 class="channel-name">beIN Sports 1</h1>
+
+<div id="player-container">
+    <div id="loading-spinner"></div>
+    
+    <div id="error-overlay">
+        <i data-feather="alert-triangle"></i>
+        <h3 id="error-title">فشل تحميل البث</h3>
+        <p id="error-message">قد يكون البث متوقف حاليًا أو توجد مشكلة في الشبكة.</p>
+    </div>
+
+    <div id="video-wrapper">
+        <video autoplay poster="https://i.ibb.co/nqxKsLQx/3594fzpse1.png" id='video'></video>
+        
+        <!-- Watermark Logo -->
+        <img src="https://f.top4top.io/p_3609yk8vk1.png" alt="Watermark" id="watermark-logo">
+        
+        <div id="channel-title">beIN Sports 1</div>
+    </div>
+
+    <a id="player-logo" href="https://t.me/vber_tv" target="_blank"><img src="https://i.ibb.co/nsm91s67/35823913b1.png" alt="Logo"></a>
+    <a id="telegram-link" href="https://t.me/vber_tv" target="_blank" title="انضم لنا">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-send">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+    </a>
+    
+    <div id="settings-popup">
+        <div class="settings-header">
+            <span class="settings-title">الإعدادات</span>
+            <span class="settings-close-btn"><i data-feather="x"></i></span>
+        </div>
+        <ul id="settings-list">
+            <li class="menu-item" id="quality-menu-item">
+                <i data-feather="layers"></i>
+                <span>جودة البث</span>
+                <span class="menu-item-value" id="current-quality">Auto</span>
+            </li>
+            <li class="menu-item" id="fit-screen-menu-item">
+                <i data-feather="maximize"></i>
+                <span>ملء الشاشة</span>
+                <span class="menu-item-value" id="fit-screen-status">مفعل</span>
+            </li>
+        </ul>
+    </div>
+
+    <div id="center-controls" class="controls-overlay">
+        <div class="center-controls-cluster">
+            <button class="control-button center-seek-button" id="seek-backward-btn" title="رجوع 10 ثواني"><i data-feather="rewind"></i></button>
+            <button class="center-control-button" id="play-pause-center-btn" title="تشغيل/إيقاف"><i data-feather="play"></i></button>
+            <button class="control-button center-seek-button" id="seek-forward-btn" title="تقديم 10 ثواني"><i data-feather="fast-forward"></i></button>
+        </div>
+    </div>
+    
+    <div id="bottom-controls-container" class="controls-overlay">
+        <div class="progress-bar-container">
+            <div class="progress-bar">
+                <div class="progress-played"></div>
             </div>
-            <div class="controls">
-                <button class="control-btn" id="fullscreen-btn">
+        </div>
+        <div class="bottom-controls">
+            <div class="controls-left">
+                <button class="control-button" id="fullscreen-btn" title="ملء الشاشة"><i data-feather="maximize"></i></button>
+                <button class="control-button" id="fit-screen-btn" title="تغيير وضع العرض">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <path d="M8 12h8"></path>
                     </svg>
                 </button>
+                <button id="settings-btn" class="control-button" title="الإعدادات"><i data-feather="settings"></i></button>
             </div>
-        </div>
-        
-        <div class="video-container">
-            <video id="video-player" controls>
-                Your browser does not support the video tag.
-            </video>
-        </div>
-        
-        <div class="status-message" id="status">
-            Loading player...
-        </div>
-        
-        <div class="player-footer">
-            <button class="control-btn" id="play-pause-btn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="5,3 19,12 5,21" id="play-icon"></polygon>
-                    <rect x="6" y="4" width="4" height="16" id="pause-icon" style="display: none;"></rect>
-                    <rect x="14" y="4" width="4" height="16" id="pause-icon-2" style="display: none;"></rect>
-                </svg>
-            </button>
-            
-            <div class="time-display" id="time-display">00:00 / 00:00</div>
-            
-            <div class="progress-container">
-                <div class="progress-bar" id="progress-bar">
-                    <div class="progress" id="progress"></div>
+            <div class="controls-right">
+                <div id="time-display-container">00:00</div>
+                <div class="volume-container">
+                    <button class="control-button" id="mute-btn" title="كتم الصوت"><i data-feather="volume-2"></i></button>
+                    <input type="range" min="0" max="100" value="80" class="volume-slider" id="volume-slider">
                 </div>
-            </div>
-            
-            <div class="volume-control">
-                <button class="control-btn" id="mute-btn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5"></polygon>
-                        <path id="volume-high" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        <path id="volume-low" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-                    </svg>
-                </button>
-                <input type="range" min="0" max="100" value="80" class="volume-slider" id="volume-slider">
+                <button class="control-button" id="play-pause-btn" title="تشغيل/إيقاف"><i data-feather="play"></i></button>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const video = document.getElementById('video-player');
-            const playPauseBtn = document.getElementById('play-pause-btn');
-            const muteBtn = document.getElementById('mute-btn');
-            const volumeSlider = document.getElementById('volume-slider');
-            const progressBar = document.getElementById('progress-bar');
-            const progress = document.getElementById('progress');
-            const timeDisplay = document.getElementById('time-display');
-            const fullscreenBtn = document.getElementById('fullscreen-btn');
-            const statusMessage = document.getElementById('status');
-            const playIcon = document.getElementById('play-icon');
-            const pauseIcon = document.getElementById('pause-icon');
-            const pauseIcon2 = document.getElementById('pause-icon-2');
-            const volumeHigh = document.getElementById('volume-high');
-            const volumeLow = document.getElementById('volume-low');
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const elements = {
+        video: document.getElementById('video'),
+        playerContainer: document.getElementById('player-container'),
+        centerControls: document.getElementById('center-controls'),
+        bottomControls: document.getElementById('bottom-controls-container'),
+        playPauseBtn: document.getElementById('play-pause-btn'),
+        playPauseCenterBtn: document.getElementById('play-pause-center-btn'),
+        muteBtn: document.getElementById('mute-btn'),
+        volumeSlider: document.getElementById('volume-slider'),
+        fullscreenBtn: document.getElementById('fullscreen-btn'),
+        fitScreenBtn: document.getElementById('fit-screen-btn'),
+        timeDisplay: document.getElementById('time-display-container'),
+        settingsBtn: document.getElementById('settings-btn'),
+        settingsPopup: document.getElementById('settings-popup'),
+        settingsList: document.getElementById('settings-list'),
+        settingsCloseBtn: document.querySelector('.settings-close-btn'),
+        loadingSpinner: document.getElementById('loading-spinner'),
+        errorOverlay: document.getElementById('error-overlay'),
+        errorTitle: document.getElementById('error-title'),
+        errorMessage: document.getElementById('error-message'),
+        seekBackwardBtn: document.getElementById('seek-backward-btn'),
+        seekForwardBtn: document.getElementById('seek-forward-btn'),
+        qualityMenuItem: document.getElementById('quality-menu-item'),
+        currentQuality: document.getElementById('current-quality'),
+        fitScreenMenuItem: document.getElementById('fit-screen-menu-item'),
+        fitScreenStatus: document.getElementById('fit-screen-status'),
+        watermarkLogo: document.getElementById('watermark-logo'),
+        videoWrapper: document.getElementById('video-wrapper')
+    };
+
+    let controlsTimeout;
+    let hls;
+    let isFitToScreen = true; // Start with cover mode (no black borders)
+    let qualityLevels = [];
+    let isFullscreen = false;
+
+    // Function to calculate and position watermark in contain mode
+    function updateWatermarkPosition() {
+        if (!isFitToScreen && !isFullscreen) {
+            // In contain mode and not fullscreen - position inside video area
+            const video = elements.video;
+            const watermark = elements.watermarkLogo;
             
-            // Video source URL
-            const videoSource = 'https://raw.githubusercontent.com/iliass-23/vibertv-m3u8/refs/heads/main/bbein1.m3u8';
+            // Get video dimensions
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
             
-            // Check if browser supports HLS
-            if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                // Native HLS support (Safari)
-                video.src = videoSource;
-                statusMessage.textContent = 'Loading beIN Sports 1 stream...';
-            } else if (Hls.isSupported()) {
-                // Use hls.js for other browsers
-                const hls = new Hls();
-                hls.loadSource(videoSource);
-                hls.attachMedia(video);
+            if (videoWidth && videoHeight) {
+                // Calculate aspect ratios
+                const containerWidth = elements.videoWrapper.offsetWidth;
+                const containerHeight = elements.videoWrapper.offsetHeight;
+                const videoAspectRatio = videoWidth / videoHeight;
+                const containerAspectRatio = containerWidth / containerHeight;
                 
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    statusMessage.textContent = 'Stream loaded. Click play to start.';
-                });
+                let videoDisplayWidth, videoDisplayHeight, offsetX, offsetY;
                 
-                hls.on(Hls.Events.ERROR, function(event, data) {
-                    if (data.fatal) {
-                        statusMessage.textContent = 'Error loading stream. Please try again later.';
-                    }
-                });
-            } else {
-                statusMessage.textContent = 'Your browser does not support HLS streaming.';
+                if (containerAspectRatio > videoAspectRatio) {
+                    // Letterboxing (black bars on sides)
+                    videoDisplayHeight = containerHeight;
+                    videoDisplayWidth = containerHeight * videoAspectRatio;
+                    offsetX = (containerWidth - videoDisplayWidth) / 2;
+                    offsetY = 0;
+                } else {
+                    // Pillarboxing (black bars on top and bottom)
+                    videoDisplayWidth = containerWidth;
+                    videoDisplayHeight = containerWidth / videoAspectRatio;
+                    offsetX = 0;
+                    offsetY = (containerHeight - videoDisplayHeight) / 2;
+                }
+                
+                // Position watermark inside the video area (not in black bars)
+                watermark.style.right = (offsetX + 30) + 'px';
+                watermark.style.bottom = (offsetY + 30) + 'px';
             }
-            
-            // Play/Pause functionality
-            playPauseBtn.addEventListener('click', function() {
-                if (video.paused) {
-                    video.play();
-                    playIcon.style.display = 'none';
-                    pauseIcon.style.display = 'block';
-                    pauseIcon2.style.display = 'block';
-                } else {
-                    video.pause();
-                    playIcon.style.display = 'block';
-                    pauseIcon.style.display = 'none';
-                    pauseIcon2.style.display = 'none';
-                }
+        } else if (!isFitToScreen && isFullscreen) {
+            // In contain mode but fullscreen - position at bottom-right corner
+            elements.watermarkLogo.style.right = '30px';
+            elements.watermarkLogo.style.bottom = '30px';
+        } else {
+            // In cover mode - position at bottom-right corner of container
+            elements.watermarkLogo.style.right = '20px';
+            elements.watermarkLogo.style.bottom = '20px';
+        }
+    }
+
+    // ======================================================
+    // ★ HLS (m3u8) Player with Quality Selector ★
+    // ======================================================
+    
+    async function initializePlayer() {
+        const streamUrl = "https://raw.githubusercontent.com/iliass-23/vibertv-m3u8/refs/heads/main/bbein1.m3u8";
+
+        // Check if browser supports HLS natively
+        if (elements.video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS support (Safari)
+            elements.video.src = streamUrl;
+            elements.video.muted = true;
+        } else if (Hls.isSupported()) {
+            // Use Hls.js for other browsers
+            hls = new Hls({
+                debug: false,
+                enableWorker: true,
+                lowLatencyMode: true,
+                backBufferLength: 90
             });
             
-            // Mute functionality
-            muteBtn.addEventListener('click', function() {
-                video.muted = !video.muted;
-                if (video.muted) {
-                    volumeHigh.style.display = 'none';
-                    volumeLow.style.display = 'none';
-                } else {
-                    volumeHigh.style.display = 'block';
-                    volumeLow.style.display = 'block';
-                }
-            });
+            hls.loadSource(streamUrl);
+            hls.attachMedia(elements.video);
             
-            // Volume control
-            volumeSlider.addEventListener('input', function() {
-                video.volume = volumeSlider.value / 100;
-                if (video.volume === 0) {
-                    volumeHigh.style.display = 'none';
-                    volumeLow.style.display = 'none';
-                } else {
-                    volumeHigh.style.display = 'block';
-                    volumeLow.style.display = 'block';
-                }
-            });
-            
-            // Update progress bar
-            video.addEventListener('timeupdate', function() {
-                const percent = (video.currentTime / video.duration) * 100;
-                progress.style.width = percent + '%';
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                console.log('Manifest parsed, levels:', hls.levels);
                 
-                // Format time display
-                const currentTime = formatTime(video.currentTime);
-                const duration = formatTime(video.duration);
-                timeDisplay.textContent = `${currentTime} / ${duration}`;
+                // Store quality levels
+                qualityLevels = hls.levels;
+                
+                // Update quality menu
+                updateQualityMenu();
             });
             
-            // Seek functionality
-            progressBar.addEventListener('click', function(e) {
-                const rect = progressBar.getBoundingClientRect();
-                const percent = (e.clientX - rect.left) / rect.width;
-                video.currentTime = percent * video.duration;
+            hls.on(Hls.Events.LEVEL_SWITCHED, function(event, data) {
+                console.log('Level switched to:', data.level);
+                updateQualityMenu();
             });
             
-            // Fullscreen functionality
-            fullscreenBtn.addEventListener('click', function() {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(err => {
-                        console.log(`Error attempting to enable fullscreen: ${err.message}`);
-                    });
-                } else {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
+            hls.on(Hls.Events.ERROR, function(event, data) {
+                console.error('HLS Error:', data);
+                if (data.fatal) {
+                    switch(data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            showError("خطأ في الشبكة", "تعذر الاتصال بالبث. تحقق من اتصالك بالإنترنت.");
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            showError("خطأ في الوسائط", "هناك مشكلة في تشغيل البث.");
+                            break;
+                        default:
+                            showError("فشل تحميل البث", "المصدر غير متاح أو به مشكلة.");
+                            break;
                     }
                 }
             });
-            
-            // Format time helper function
-            function formatTime(seconds) {
-                const minutes = Math.floor(seconds / 60);
-                seconds = Math.floor(seconds % 60);
-                return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            }
-            
-            // Video event listeners
-            video.addEventListener('play', function() {
-                statusMessage.textContent = 'Now playing: beIN Sports 1';
-            });
-            
-            video.addEventListener('waiting', function() {
-                statusMessage.textContent = 'Buffering...';
-            });
-            
-            video.addEventListener('canplay', function() {
-                statusMessage.textContent = 'Ready to play';
-            });
+        } else {
+            showError("خطأ", "المتصفح لا يدعم تشغيل هذا النوع من البث.");
+        }
+
+        elements.video.muted = true;
+
+        try {
+            await elements.video.play();
+            elements.loadingSpinner.style.display = 'none';
+            showControls(); // Show controls initially
+        } catch (err) {
+            console.log("Autoplay blocked, waiting for user");
+            elements.loadingSpinner.style.display = 'none';
+            showControls(); // Show controls even if autoplay blocked
+        }
+
+        elements.video.addEventListener("error", () => {
+            showError("فشل تشغيل البث", "المصدر غير متاح أو به مشكلة.");
         });
-    </script>
+
+        // Update watermark position when video metadata is loaded
+        elements.video.addEventListener('loadedmetadata', updateWatermarkPosition);
+        
+        // Update watermark position on resize
+        window.addEventListener('resize', updateWatermarkPosition);
+    }
+
+    // Update quality menu
+    function updateQualityMenu() {
+        if (!hls) return;
+        
+        const currentLevel = hls.currentLevel;
+        if (currentLevel === -1) {
+            elements.currentQuality.textContent = 'Auto';
+        } else if (qualityLevels[currentLevel]) {
+            const level = qualityLevels[currentLevel];
+            if (level.height) {
+                elements.currentQuality.textContent = `${level.height}p`;
+            } else if (level.bitrate) {
+                elements.currentQuality.textContent = `${Math.round(level.bitrate/1000)}kbps`;
+            } else {
+                elements.currentQuality.textContent = `Level ${currentLevel}`;
+            }
+        }
+    }
+
+    // Quality menu item click handler
+    elements.qualityMenuItem.addEventListener('click', function() {
+        if (!hls || qualityLevels.length === 0) return;
+        
+        // Create quality selection menu
+        const qualityMenu = document.createElement('div');
+        qualityMenu.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--menu-bg);
+            backdrop-filter: blur(15px);
+            padding: 15px;
+            z-index: 30;
+            overflow-y: auto;
+        `;
+        
+        // Add back button
+        const backButton = document.createElement('div');
+        backButton.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        `;
+        backButton.innerHTML = `
+            <i data-feather="arrow-right"></i>
+            <span>رجوع</span>
+        `;
+        backButton.addEventListener('click', function() {
+            qualityMenu.remove();
+        });
+        backButton.addEventListener('mouseenter', function() {
+            this.style.background = 'rgba(255,255,255,0.1)';
+        });
+        backButton.addEventListener('mouseleave', function() {
+            this.style.background = 'transparent';
+        });
+        qualityMenu.appendChild(backButton);
+        
+        // Add title
+        const title = document.createElement('div');
+        title.style.cssText = `
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            padding: 0 10px;
+            color: white;
+        `;
+        title.textContent = 'اختر جودة البث';
+        qualityMenu.appendChild(title);
+        
+        // Add auto option
+        const autoOption = document.createElement('div');
+        autoOption.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            cursor: pointer;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            transition: background 0.2s;
+            ${hls.currentLevel === -1 ? 'color: var(--primary-color); font-weight: bold; background: rgba(255,193,7,0.1);' : 'color: white;'}
+        `;
+        autoOption.innerHTML = `
+            <span>تلقائي (Auto)</span>
+            ${hls.currentLevel === -1 ? '<i data-feather="check" class="checkmark"></i>' : ''}
+        `;
+        autoOption.addEventListener('click', function() {
+            hls.currentLevel = -1;
+            updateQualityMenu();
+            qualityMenu.remove();
+            showControls();
+        });
+        autoOption.addEventListener('mouseenter', function() {
+            if (hls.currentLevel !== -1) {
+                this.style.background = 'rgba(255,255,255,0.1)';
+            }
+        });
+        autoOption.addEventListener('mouseleave', function() {
+            if (hls.currentLevel !== -1) {
+                this.style.background = 'transparent';
+            }
+        });
+        qualityMenu.appendChild(autoOption);
+        
+        // Add quality options
+        qualityLevels.forEach((level, index) => {
+            const qualityOption = document.createElement('div');
+            let qualityLabel;
+            
+            if (level.height) {
+                qualityLabel = `${level.height}p`;
+            } else if (level.bitrate) {
+                qualityLabel = `${Math.round(level.bitrate/1000)}kbps`;
+            } else {
+                qualityLabel = `Level ${index}`;
+            }
+            
+            qualityOption.style.cssText = `
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 15px;
+                cursor: pointer;
+                border-radius: 8px;
+                margin-bottom: 5px;
+                transition: background 0.2s;
+                ${hls.currentLevel === index ? 'color: var(--primary-color); font-weight: bold; background: rgba(255,193,7,0.1);' : 'color: white;'}
+            `;
+            
+            qualityOption.innerHTML = `
+                <span>${qualityLabel}</span>
+                ${hls.currentLevel === index ? '<i data-feather="check" class="checkmark"></i>' : ''}
+            `;
+            
+            qualityOption.addEventListener('click', function() {
+                hls.currentLevel = index;
+                updateQualityMenu();
+                qualityMenu.remove();
+                showControls();
+            });
+            
+            qualityOption.addEventListener('mouseenter', function() {
+                if (hls.currentLevel !== index) {
+                    this.style.background = 'rgba(255,255,255,0.1)';
+                }
+            });
+            
+            qualityOption.addEventListener('mouseleave', function() {
+                if (hls.currentLevel !== index) {
+                    this.style.background = 'transparent';
+                }
+            });
+            
+            qualityMenu.appendChild(qualityOption);
+        });
+        
+        elements.settingsPopup.appendChild(qualityMenu);
+        feather.replace();
+    });
+
+    // Fit screen functionality
+    function toggleFitScreen() {
+        isFitToScreen = !isFitToScreen;
+        
+        if (isFitToScreen) {
+            elements.video.style.objectFit = 'cover';
+            elements.videoWrapper.classList.remove('video-contain');
+            elements.fitScreenBtn.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <path d="M8 12h8"></path>
+                </svg>
+            `;
+            elements.fitScreenBtn.title = "احتواء الفيديو";
+            elements.fitScreenStatus.textContent = "مفعل";
+        } else {
+            elements.video.style.objectFit = 'contain';
+            elements.videoWrapper.classList.add('video-contain');
+            elements.fitScreenBtn.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <path d="M12 8v8"></path>
+                    <path d="M8 12h8"></path>
+                </svg>
+            `;
+            elements.fitScreenBtn.title = "ملء الشاشة";
+            elements.fitScreenStatus.textContent = "معطل";
+        }
+        
+        // Update watermark position
+        updateWatermarkPosition();
+        
+        // Show controls and reset the hide timeout
+        showControls();
+    }
+
+    elements.fitScreenBtn.addEventListener('click', toggleFitScreen);
+    elements.fitScreenMenuItem.addEventListener('click', toggleFitScreen);
+
+    // ======================================================
+    // UI Logic (Play, Pause, Mute, Fullscreen…)
+    // ======================================================
+
+    function showError(title, msg) {
+        elements.errorTitle.textContent = title;
+        elements.errorMessage.textContent = msg;
+        elements.loadingSpinner.style.display = 'none';
+        elements.errorOverlay.style.display = 'flex';
+        feather.replace();
+    }
+
+    const showControls = () => {
+        [elements.bottomControls, elements.centerControls].forEach(el => {
+            el.classList.add('visible');
+        });
+        clearTimeout(controlsTimeout);
+        
+        // Auto-hide after 3 seconds if video is playing
+        if (!elements.video.paused) {
+            controlsTimeout = setTimeout(hideControls, 3000);
+        }
+    };
+
+    const hideControls = () => {
+        // Don't hide if settings is open
+        if (elements.settingsPopup.style.display === 'block') return;
+        
+        [elements.bottomControls, elements.centerControls].forEach(el => {
+            el.classList.remove('visible');
+        });
+    };
+
+    const togglePlay = () => {
+        if (elements.video.paused) {
+            elements.video.play();
+        } else {
+            elements.video.pause();
+        }
+        showControls();
+    };
+
+    const updatePlayButton = () => {
+        const icon = elements.video.paused ? 'play' : 'pause';
+        elements.playPauseBtn.innerHTML = `<i data-feather="${icon}"></i>`;
+        elements.playPauseCenterBtn.innerHTML = `<i data-feather="${icon}"></i>`;
+        feather.replace();
+        showControls();
+    };
+
+    function updateMuteButton() {
+        const icon = elements.video.muted ? 'volume-x' : 'volume-2';
+        elements.muteBtn.innerHTML = `<i data-feather="${icon}"></i>`;
+        feather.replace();
+        showControls();
+    }
+
+    async function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            await elements.playerContainer.requestFullscreen();
+            isFullscreen = true;
+        } else {
+            await document.exitFullscreen();
+            isFullscreen = false;
+        }
+        
+        // Update watermark position
+        updateWatermarkPosition();
+        
+        showControls();
+    }
+
+    function updateFullscreenIcon() {
+        const icon = document.fullscreenElement ? 'minimize' : 'maximize';
+        elements.fullscreenBtn.innerHTML = `<i data-feather="${icon}"></i>`;
+        feather.replace();
+        
+        // Update fullscreen state
+        isFullscreen = !!document.fullscreenElement;
+        
+        // Update watermark position
+        updateWatermarkPosition();
+    }
+
+    function formatTime(sec) {
+        if (sec < 0 || isNaN(sec)) return "00:00";
+        const m = Math.floor(sec / 60).toString().padStart(2, '0');
+        const s = Math.floor(sec % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+    elements.video.addEventListener('timeupdate', () => {
+        elements.timeDisplay.textContent = formatTime(elements.video.currentTime);
+    });
+
+    // Events
+    elements.playPauseBtn.onclick = togglePlay;
+    elements.playPauseCenterBtn.onclick = togglePlay;
+    elements.muteBtn.onclick = () => { 
+        elements.video.muted = !elements.video.muted; 
+        showControls();
+    };
+    elements.volumeSlider.addEventListener('input', function() {
+        elements.video.volume = this.value / 100;
+        elements.video.muted = false;
+        updateMuteButton();
+    });
+    elements.fullscreenBtn.onclick = toggleFullscreen;
+    elements.settingsBtn.onclick = () => {
+        elements.settingsPopup.style.display = 'block';
+        showControls();
+    };
+    elements.settingsCloseBtn.onclick = () => {
+        elements.settingsPopup.style.display = 'none';
+        // Remove any quality submenus
+        const qualityMenus = elements.settingsPopup.querySelectorAll('div');
+        qualityMenus.forEach(menu => {
+            if (menu !== elements.settingsList && menu !== elements.settingsPopup.querySelector('.settings-header')) {
+                menu.remove();
+            }
+        });
+        showControls();
+    };
+    elements.seekBackwardBtn.onclick = () => { 
+        elements.video.currentTime -= 10; 
+        showControls();
+    };
+    elements.seekForwardBtn.onclick = () => { 
+        elements.video.currentTime += 10; 
+        showControls();
+    };
+
+    elements.video.addEventListener('play', updatePlayButton);
+    elements.video.addEventListener('pause', updatePlayButton);
+    elements.video.addEventListener('volumechange', updateMuteButton);
+    document.addEventListener('fullscreenchange', updateFullscreenIcon);
+
+    // Show controls on user interaction
+    elements.playerContainer.addEventListener('mousemove', showControls);
+    elements.playerContainer.addEventListener('touchstart', showControls);
+    elements.playerContainer.addEventListener('click', showControls);
+
+    // Start player
+    initializePlayer();
+    feather.replace();
+});
+</script>
+  
 </body>
 </html>
